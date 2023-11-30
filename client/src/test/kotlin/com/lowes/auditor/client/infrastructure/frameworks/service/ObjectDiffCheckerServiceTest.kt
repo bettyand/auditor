@@ -328,6 +328,90 @@ class ObjectDiffCheckerServiceTest : BehaviorSpec({
                 )
             )
         )
+        val itemWithDuplicates = Item(
+            subList = listOf(
+                SubObject("1", "1", "in"),
+                SubObject("1", "1", "in"),
+                SubObject("2", "2", "ft"),
+                SubObject("3", "3", "ft"),
+                SubObject("3", "3", "yd")
+            )
+        )
+        val itemWithDupesShuffled = Item(subList = itemWithDuplicates.subList?.shuffled())
+        val itemWithDupesUpdated = Item(
+            subList = listOf(
+                SubObject("1", "1", "in"),
+                SubObject("1", "1", "in"),
+                SubObject("1", "1", "in"),
+                SubObject("2", "2", "in"),
+                SubObject("3", "3", "ft"),
+                SubObject("4", "4", "ft")
+            )
+        )
+        val deeplyNestedLists = Item(
+            listItem = mutableListOf(
+                Rand(
+                    id = "rand1",
+                    deeplyNested = listOf(
+                        listOf("apple", "ant", "average"),
+                        listOf("beech", "bear", "best"),
+                        listOf("cork", "cat", "cute")
+                    )
+                ),
+                Rand(
+                    id = "rand2",
+                    deeplyNested = listOf(
+                        listOf("date", "deer", "delicious"),
+                        listOf("elm", "elk", "easy")
+                    )
+                )
+            )
+        )
+        val deeplyNestedShuffled = Item(
+            listItem = mutableListOf(
+                Rand(
+                    id = "rand2",
+                    deeplyNested = listOf(
+                        listOf("date", "delicious", "deer"),
+                        listOf("easy", "elk", "elm")
+                    )
+                ),
+                Rand(
+                    id = "rand1",
+                    deeplyNested = listOf(
+                        listOf("best", "bear", "beech"),
+                        listOf("cork", "cute", "cat"),
+                        listOf("average", "apple", "ant")
+                    )
+                )
+            )
+        )
+        val deeplyNestedUpdated = Item(
+            listItem = mutableListOf(
+                Rand(
+                    id = "rand1",
+                    deeplyNested = listOf(
+                        listOf("apple", "anteater", "average"),
+                        listOf("birch", "bear", "best"),
+                        listOf("cat", "cute")
+                    )
+                ),
+                Rand(
+                    id = "rand2",
+                    deeplyNested = listOf(
+                        listOf("date", "deer", "delicious", "daring"),
+                        listOf("elm", "elk", "easy"),
+                        listOf("fir", "fox", "fine")
+                    )
+                ),
+                Rand(
+                    id = "rand3",
+                    deeplyNested = listOf(
+                        listOf("gum", "goat", "great")
+                    )
+                )
+            )
+        )
 
         And("Field to use is not specified") {
             val defaultIdentifierConfig =
@@ -347,6 +431,44 @@ class ObjectDiffCheckerServiceTest : BehaviorSpec({
                         javaClass.getResource("/ignoreOrderDefault.json")!!.readBytes(),
                         Array<Element>::class.java
                     ).toList()
+                }
+            }
+
+            When("Objects being compared contain collections with duplicates") {
+                And("Only order has changed") {
+                    val diff =
+                        diffCheckerAltArrayId.diff(itemWithDuplicates, itemWithDupesShuffled).collectList().block()
+                    Then("Diff will be empty (Default & Duplicates") {
+                        diff shouldBe emptyList()
+                    }
+                }
+                And("Values have changed") {
+                    val diff =
+                        diffCheckerAltArrayId.diff(itemWithDuplicates, itemWithDupesUpdated).collectList().block()
+                    Then("Diff will contain all create, update, and delete events (Default & Duplicates)") {
+                        diff shouldBe obj.readValue(
+                            javaClass.getResource("/ignoreOrderDuplicates.json")!!.readBytes(),
+                            Array<Element>::class.java
+                        )
+                    }
+                }
+            }
+
+            When("Objects being compared contain deeply nested collections") {
+                And("Only order has changed") {
+                    val diff = diffCheckerAltArrayId.diff(deeplyNestedLists, deeplyNestedShuffled).collectList().block()
+                    Then("Diff will be empty (Default & Nested") {
+                        diff shouldBe emptyList()
+                    }
+                }
+                And("Values have changed") {
+                    val diff = diffCheckerAltArrayId.diff(deeplyNestedLists, deeplyNestedUpdated).collectList().block()
+                    Then("Diff will contain all create, update, and delete events (Default & Nested)") {
+                        diff shouldBe obj.readValue(
+                            javaClass.getResource("/ignoreOrderNested.json")!!.readBytes(),
+                            Array<Element>::class.java
+                        )
+                    }
                 }
             }
         }

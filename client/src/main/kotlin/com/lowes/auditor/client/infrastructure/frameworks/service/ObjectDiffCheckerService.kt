@@ -66,27 +66,52 @@ class ObjectDiffCheckerService(
      * Checks list of elements with same fqdn for changes
      */
     private fun getChanges(elements: List<Element>): List<Element> {
-        val changes = mutableListOf<Element>()
-        // typical create/delete
-        if (elements.size == 1) changes.add(elements[0])
-        // typical update, not sure if order will be consistent so check both ways
-        else if (elements.size == 2) {
-            if (elements[0].previousValue != null && elements[0].previousValue != elements[1].updatedValue)
-                changes.add(elements[0].copy(updatedValue = elements[1].updatedValue))
-            else if (elements[1].previousValue != null && elements[1].previousValue != elements[0].updatedValue)
-                changes.add(elements[1].copy(updatedValue = elements[0].updatedValue))
-        }
-        // will only be reached if ignoring order is enabled and a collection contains duplicate primitives
-        // since all values will be the same, we just need to compare the number of previous/updated
-        else {
-            val previous = mutableListOf<Element>()
-            val updated = mutableListOf<Element>()
-            elements.forEach { element ->
-                if (element.previousValue != null) previous.add(element)
-                else if (element.updatedValue != null) updated.add(element)
+        return when (elements.size) {
+            // typical create/delete
+            1 -> elements
+            // typical update, not sure if order will be consistent so check both ways
+            2 -> {
+                if (elements[0].previousValue != null && elements[0].previousValue != elements[1].updatedValue)
+                    listOf(elements[0].copy(updatedValue = elements[1].updatedValue))
+                else if (elements[1].previousValue != null && elements[1].previousValue != elements[0].updatedValue)
+                    listOf(elements[1].copy(updatedValue = elements[0].updatedValue))
+                else listOf()
             }
-            if (previous.size > updated.size) changes.addAll(previous.drop(updated.size))
-            else if (updated.size > previous.size) changes.addAll(updated.drop(previous.size))
+            // will only be reached if ignoring order is enabled and a collection contains duplicates
+            else -> diffDuplicates(elements)
+        }
+    }
+
+    private fun diffDuplicates(elements: List<Element>): List<Element> {
+        val changes = mutableListOf<Element>()
+        // sort
+        val previous = mutableListOf<Element>()
+        val updated = mutableListOf<Element>()
+        elements.forEach { element ->
+            if (element.previousValue != null) previous.add(element)
+            else if (element.updatedValue != null) updated.add(element)
+        }
+        // group by value
+        val prevGrouped = previous.groupBy { it.previousValue }
+        val updGrouped = updated.groupBy { it.updatedValue }
+        // for each value, diff by number of prev/upd occurrences
+        val prevDiff = mutableListOf<Element>()
+        val updDiff = mutableListOf<Element>()
+        (prevGrouped.keys + updGrouped.keys).distinct().forEach { value ->
+            val prevSize = prevGrouped[value]?.size ?: 0
+            val updSize = updGrouped[value]?.size ?: 0
+            when {
+                prevSize > updSize -> prevGrouped[value]?.let { prevDiff.addAll(it.drop(updSize)) }
+                updSize > prevSize -> updGrouped[value]?.let { updDiff.addAll(it.drop(prevSize)) }
+            }
+        }
+        // consolidate elements where possible
+        if (prevDiff.size >= updDiff.size) {
+            for (n in 0 until updDiff.size) changes.add(prevDiff[n].copy(updatedValue = updDiff[n].updatedValue))
+            changes.addAll(prevDiff.drop(updDiff.size))
+        } else {
+            for (n in 0 until prevDiff.size) changes.add(updDiff[n].copy(previousValue = prevDiff[n].previousValue))
+            changes.addAll(updDiff.drop(prevDiff.size))
         }
         return changes
     }

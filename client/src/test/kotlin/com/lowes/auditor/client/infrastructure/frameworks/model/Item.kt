@@ -9,7 +9,7 @@ data class Item(
     val metadata: Map<String, String>? = null,
     val rand: Rand? = null,
     val rand2: Rand? = null,
-    val listItem: MutableList<Rand> ? = null,
+    val listItem: MutableList<Rand>? = null,
     val metadataRand: Map<String, Rand>? = null,
     val stringList: List<String>? = null,
     val price: BigDecimal? = null,
@@ -22,7 +22,8 @@ data class Rand(
     val name: String? = null,
     val doubleList: List<SubObject>? = null,
     val listString: List<String>? = null,
-    val mapList: Map<String, List<SubObject>>? = null
+    val mapList: Map<String, List<SubObject>>? = null,
+    val deeplyNested: List<List<String>>? = null
 )
 
 data class SubObject(
